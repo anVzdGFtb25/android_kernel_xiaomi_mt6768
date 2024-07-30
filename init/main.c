@@ -90,14 +90,9 @@
 #include <linux/rodata_test.h>
 
 #include <asm/io.h>
-#include <asm/bugs.h>
 #include <asm/setup.h>
 #include <asm/sections.h>
 #include <asm/cacheflush.h>
-
-#ifdef CONFIG_MTK_RAM_CONSOLE
-#include <mt-plat/mtk_ram_console.h>
-#endif
 
 static int kernel_init(void *);
 
@@ -490,8 +485,6 @@ void __init __weak thread_stack_cache_init(void)
 }
 #endif
 
-void __init __weak mem_encrypt_init(void) { }
-
 /* Report memory auto-initialization states for this boot. */
 static void __init report_meminit(void)
 {
@@ -679,14 +672,6 @@ asmlinkage __visible void __init start_kernel(void)
 	 */
 	locking_selftest();
 
-	/*
-	 * This needs to be called before any devices perform DMA
-	 * operations that might use the SWIOTLB bounce buffers. It will
-	 * mark the bounce buffers as decrypted so that their usage will
-	 * not cause "plain-text" data to be decrypted when accessed.
-	 */
-	mem_encrypt_init();
-
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (initrd_start && !initrd_below_start_ok &&
 	    page_to_pfn(virt_to_page((void *)initrd_start)) < min_low_pfn) {
@@ -703,6 +688,9 @@ asmlinkage __visible void __init start_kernel(void)
 	if (late_time_init)
 		late_time_init();
 	calibrate_delay();
+
+	arch_cpu_finalize_init();
+
 	pidmap_init();
 	anon_vma_init();
 	acpi_early_init();
@@ -728,7 +716,6 @@ asmlinkage __visible void __init start_kernel(void)
 	taskstats_init_early();
 	delayacct_init();
 
-	check_bugs();
 
 	acpi_subsystem_init();
 	arch_post_acpi_subsys_init();
@@ -844,34 +831,21 @@ static int __init_or_module do_one_initcall_debug(initcall_t fn)
 
 	return ret;
 }
-#ifdef CONFIG_MTPROF
-#include <bootprof.h>
-#else
-#define TIME_LOG_START()
-#define TIME_LOG_END()
-#define bootprof_initcall(fn, ts)
-#endif
 
 int __init_or_module do_one_initcall(initcall_t fn)
 {
 	int count = preempt_count();
 	int ret;
 	char msgbuf[64];
-#ifdef CONFIG_MTPROF
-	unsigned long long ts = 0;
-#endif
+
 	if (initcall_blacklisted(fn))
 		return -EPERM;
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	aee_rr_rec_last_init_func((unsigned long)fn);
-#endif
-	TIME_LOG_START();
 	if (initcall_debug)
 		ret = do_one_initcall_debug(fn);
 	else
 		ret = fn();
-	TIME_LOG_END();
+
 	msgbuf[0] = 0;
 
 	if (preempt_count() != count) {
@@ -885,7 +859,6 @@ int __init_or_module do_one_initcall(initcall_t fn)
 	WARN(msgbuf[0], "initcall %pF returned with %s\n", fn, msgbuf);
 
 	add_latent_entropy();
-	bootprof_initcall(fn, ts);
 	return ret;
 }
 
@@ -946,9 +919,6 @@ static void __init do_initcalls(void)
 
 	for (level = 0; level < ARRAY_SIZE(initcall_levels) - 1; level++)
 		do_initcall_level(level);
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	aee_rr_rec_last_init_func(~(unsigned long)(0));
-#endif
 }
 
 /*
@@ -1060,9 +1030,7 @@ static int __ref kernel_init(void *unused)
 	numa_default_policy();
 
 	rcu_end_inkernel_boot();
-#ifdef CONFIG_MTPROF
-		log_boot("Kernel_init_done");
-#endif
+
 	if (ramdisk_execute_command) {
 		ret = run_init_process(ramdisk_execute_command);
 		if (!ret)

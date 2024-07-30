@@ -72,8 +72,6 @@
 
 #include <trace/events/sched.h>
 
-#include <mt-plat/mtk_pidmap.h>
-
 int suid_dumpable = 0;
 
 static LIST_HEAD(formats);
@@ -313,7 +311,7 @@ static int __bprm_mm_init(struct linux_binprm *bprm)
 	vma->vm_start = vma->vm_end - PAGE_SIZE;
 	vma->vm_flags = VM_SOFTDIRTY | VM_STACK_FLAGS | VM_STACK_INCOMPLETE_SETUP;
 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
-	INIT_VMA(vma);
+	INIT_LIST_HEAD(&vma->anon_vma_chain);
 
 	err = insert_vm_struct(mm, vma);
 	if (err)
@@ -1252,7 +1250,6 @@ void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 	strlcpy(tsk->comm, buf, sizeof(tsk->comm));
 	task_unlock(tsk);
 	perf_event_comm(tsk, exec);
-	mtk_pidmap_update(tsk);
 }
 
 /*
@@ -1709,28 +1706,11 @@ static int exec_binprm(struct linux_binprm *bprm)
 /*
  * sys_execve() executes a new program.
  */
- 
-#ifdef CONFIG_KSU
-extern bool ksu_execveat_hook __read_mostly;
-extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
-			void *envp, int *flags);
-extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
-				 void *argv, void *envp, int *flags);
-#endif
-
 static int do_execveat_common(int fd, struct filename *filename,
 			      struct user_arg_ptr argv,
 			      struct user_arg_ptr envp,
 			      int flags)
 {
-
-    #ifdef CONFIG_KSU
- 	if (unlikely(ksu_execveat_hook))
- 		ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
- 	else
- 		ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
-    #endif
-    
 	char *pathbuf = NULL;
 	struct linux_binprm *bprm;
 	struct file *file;

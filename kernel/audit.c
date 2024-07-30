@@ -875,19 +875,6 @@ main_queue:
 	return 0;
 }
 
-#ifdef CONFIG_MTK_SELINUX_AEE_WARNING
-/*
- * return skb field of audit buffer
- */
-struct sk_buff *audit_get_skb(struct audit_buffer *ab)
-{
-	if (ab)
-		return (struct sk_buff *)(ab->skb);
-	else
-		return NULL;
-}
-#endif
-
 int audit_send_list_thread(void *_dest)
 {
 	struct audit_netlink_list *dest = _dest;
@@ -1741,7 +1728,7 @@ struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
 {
 	struct audit_buffer *ab;
 	struct timespec64 t;
-	unsigned int uninitialized_var(serial);
+	unsigned int serial;
 
 	if (audit_initialized != AUDIT_INITIALIZED)
 		return NULL;

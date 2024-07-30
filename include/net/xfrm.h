@@ -132,17 +132,6 @@ struct xfrm_state_offload {
 	u8			flags;
 };
 
-#define XFRM_TRACK_ADDRS_COUNT 16
-
-struct xfrm_state_trace {
-	int cpu;
-	int pid;
-	int count;
-	unsigned long long when_sec;
-	unsigned long when_nsec;
-	unsigned long addrs[XFRM_TRACK_ADDRS_COUNT];
-};
-
 /* Full description of state of transformer. */
 struct xfrm_state {
 	possible_net_t		xs_net;
@@ -155,12 +144,6 @@ struct xfrm_state {
 
 	refcount_t		refcnt;
 	spinlock_t		lock;
-
-	struct xfrm_state_trace xfrm_alloc_trace;
-	struct xfrm_state_trace xfrm_free_trace;
-	struct xfrm_state_trace xfrm_transfer_trace;
-	struct xfrm_state_trace xfrm_find_trace;
-	struct xfrm_state_trace xfrm_insert_trace;
 
 	struct xfrm_id		id;
 	struct xfrm_selector	sel;
@@ -1745,14 +1728,15 @@ int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
 	       const struct xfrm_migrate *m, int num_bundles,
 	       const struct xfrm_kmaddress *k,
 	       const struct xfrm_encap_tmpl *encap);
-struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *net);
+struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *net,
+						u32 if_id);
 struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
 				      struct xfrm_migrate *m,
 				      struct xfrm_encap_tmpl *encap);
 int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
 		 struct xfrm_migrate *m, int num_bundles,
 		 struct xfrm_kmaddress *k, struct net *net,
-		 struct xfrm_encap_tmpl *encap);
+		 struct xfrm_encap_tmpl *encap, u32 if_id);
 #endif
 
 int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport);

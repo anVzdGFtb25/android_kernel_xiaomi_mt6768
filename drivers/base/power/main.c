@@ -38,9 +38,6 @@
 
 #include "../base.h"
 #include "power.h"
-#ifdef CONFIG_MTK_RAM_CONSOLE
-#include <mt-plat/mtk_ram_console.h>
-#endif
 
 typedef int (*pm_callback_t)(struct device *);
 
@@ -471,7 +468,7 @@ static void dpm_show_time(ktime_t starttime, pm_message_t state, int error,
 	if (usecs == 0)
 		usecs = 1;
 
-	pr_info("%s%s%s of devices %s after %ld.%03ld msecs\n",
+	pm_pr_dbg("%s%s%s of devices %s after %ld.%03ld msecs\n",
 		  info ?: "", info ? " " : "", pm_verb(state.event),
 		  error ? "aborted" : "complete",
 		  usecs / USEC_PER_MSEC, usecs % USEC_PER_MSEC);
@@ -612,13 +609,6 @@ static int device_resume_noirq(struct device *dev, pm_message_t state, bool asyn
 		callback = pm_noirq_op(dev->driver->pm, state);
 	}
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	if (async)
-		aee_rr_rec_last_async_func((unsigned long int)callback);
-	else
-		aee_rr_rec_last_sync_func((unsigned long int)callback);
-#endif
-
 	error = dpm_run_callback(callback, dev, state, info);
 	dev->power.is_noirq_suspended = false;
 
@@ -691,11 +681,6 @@ void dpm_noirq_resume_devices(pm_message_t state)
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
-
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	aee_rr_rec_last_async_func(0);
-	aee_rr_rec_last_sync_func(0);
-#endif
 	dpm_show_time(starttime, state, 0, "noirq");
 	trace_suspend_resume(TPS("dpm_resume_noirq"), state.event, false);
 }
@@ -764,13 +749,6 @@ static int device_resume_early(struct device *dev, pm_message_t state, bool asyn
 		info = "early driver ";
 		callback = pm_late_early_op(dev->driver->pm, state);
 	}
-
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	if (async)
-		aee_rr_rec_last_async_func((unsigned long int)callback);
-	else
-		aee_rr_rec_last_sync_func((unsigned long int)callback);
-#endif
 
 	error = dpm_run_callback(callback, dev, state, info);
 	dev->power.is_late_suspended = false;
@@ -843,11 +821,6 @@ void dpm_resume_early(pm_message_t state)
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
-
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	aee_rr_rec_last_async_func(0);
-	aee_rr_rec_last_sync_func(0);
-#endif
 	dpm_show_time(starttime, state, 0, "early");
 	trace_suspend_resume(TPS("dpm_resume_early"), state.event, false);
 }
@@ -945,12 +918,6 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 	}
 
  End:
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	if (async)
-		aee_rr_rec_last_async_func((unsigned long int)callback);
-	else
-		aee_rr_rec_last_sync_func((unsigned long int)callback);
-#endif
 	error = dpm_run_callback(callback, dev, state, info);
 	dev->power.is_suspended = false;
 
@@ -1028,11 +995,6 @@ void dpm_resume(pm_message_t state)
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
-
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	aee_rr_rec_last_async_func(0);
-	aee_rr_rec_last_sync_func(0);
-#endif
 	dpm_show_time(starttime, state, 0, NULL);
 
 	cpufreq_resume();
@@ -1210,13 +1172,6 @@ static int __device_suspend_noirq(struct device *dev, pm_message_t state, bool a
 		callback = pm_noirq_op(dev->driver->pm, state);
 	}
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	if (async)
-		aee_rr_rec_last_async_func((unsigned long int)callback);
-	else
-		aee_rr_rec_last_sync_func((unsigned long int)callback);
-#endif
-
 	error = dpm_run_callback(callback, dev, state, info);
 	if (!error) {
 		dev->power.is_noirq_suspended = true;
@@ -1299,11 +1254,6 @@ int dpm_noirq_suspend_devices(pm_message_t state)
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
-
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	aee_rr_rec_last_async_func(0);
-	aee_rr_rec_last_sync_func(0);
-#endif
 	if (!error)
 		error = async_error;
 
@@ -1386,13 +1336,6 @@ static int __device_suspend_late(struct device *dev, pm_message_t state, bool as
 		callback = pm_late_early_op(dev->driver->pm, state);
 	}
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	if (async)
-		aee_rr_rec_last_async_func((unsigned long int)callback);
-	else
-		aee_rr_rec_last_sync_func((unsigned long int)callback);
-#endif
-
 	error = dpm_run_callback(callback, dev, state, info);
 	if (!error) {
 		dev->power.is_late_suspended = true;
@@ -1473,11 +1416,6 @@ int dpm_suspend_late(pm_message_t state)
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
-
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	aee_rr_rec_last_async_func(0);
-	aee_rr_rec_last_sync_func(0);
-#endif
 	if (!error)
 		error = async_error;
 	if (error) {
@@ -1658,13 +1596,6 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 		callback = pm_op(dev->driver->pm, state);
 	}
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	if (async)
-		aee_rr_rec_last_async_func((unsigned long int)callback);
-	else
-		aee_rr_rec_last_sync_func((unsigned long int)callback);
-#endif
-
 	error = dpm_run_callback(callback, dev, state, info);
 
  End:
@@ -1766,11 +1697,6 @@ int dpm_suspend(pm_message_t state)
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
-
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	aee_rr_rec_last_async_func(0);
-	aee_rr_rec_last_sync_func(0);
-#endif
 	if (!error)
 		error = async_error;
 	if (error) {

@@ -207,17 +207,6 @@ static int mtu3_prepare_tx_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq)
 		mep->epnum, gpd, enq);
 
 	enq->flag &= ~GPD_FLAGS_HWO;
-
-	if (mep->mtu->is_36bit) {
-		u32 hiaddr;
-		/* next GPD high addr */
-		hiaddr = upper_32_bits(gpd_virt_to_dma(ring, enq));
-		gpd->data_buf_len |= QMU_GPD_NEXT_HI(hiaddr);
-		/* buffer high addr */
-		hiaddr = upper_32_bits(req->dma);
-		gpd->data_buf_len |= QMU_GPD_BUF_HI(hiaddr);
-	}
-
 	gpd->next_gpd = cpu_to_le32((u32)gpd_virt_to_dma(ring, enq));
 
 	if (req->zero)
@@ -251,16 +240,6 @@ static int mtu3_prepare_rx_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq)
 		mep->epnum, gpd, enq);
 
 	enq->flag &= ~GPD_FLAGS_HWO;
-	if (mep->mtu->is_36bit) {
-		u32 hiaddr;
-		/* next GPD high addr */
-		hiaddr = upper_32_bits(gpd_virt_to_dma(ring, enq));
-		gpd->ext_len |= QMU_GPD_NEXT_HI(hiaddr);
-		/* buffer high addr */
-		hiaddr = upper_32_bits(req->dma);
-		gpd->ext_len |= QMU_GPD_BUF_HI(hiaddr);
-	}
-
 	gpd->next_gpd = cpu_to_le32((u32)gpd_virt_to_dma(ring, enq));
 	gpd->chksum = qmu_calc_checksum((u8 *)gpd);
 	gpd->flag |= GPD_FLAGS_HWO;
@@ -388,12 +367,12 @@ static void qmu_tx_zlp_error_handler(struct mtu3 *mtu, u8 epnum)
 
 	gpd_current = gpd_dma_to_virt(ring, gpd_dma);
 
-	if (!gpd_current || le16_to_cpu(gpd_current->buf_len) != 0) {
+	if (le16_to_cpu(gpd_current->buf_len) != 0) {
 		dev_err(mtu->dev, "TX EP%d buffer length error(!=0)\n", epnum);
 		return;
 	}
 
-	dev_dbg(mtu->dev, "%s send ZLP for req=%p\n", __func__, mreq);
+	dev_dbg(mtu->dev, "%s send ZLP for req=%p\n", __func__, req);
 
 	mtu3_clrbits(mbase, MU3D_EP_TXCR0(mep->epnum), TX_DMAREQEN);
 
@@ -439,8 +418,7 @@ static void qmu_done_tx(struct mtu3 *mtu, u8 epnum)
 	dev_dbg(mtu->dev, "%s EP%d, last=%p, current=%p, enq=%p\n",
 		__func__, epnum, gpd, gpd_current, ring->enqueue);
 
-	while (gpd != NULL && gpd != gpd_current &&
-			!(gpd->flag & GPD_FLAGS_HWO)) {
+	while (gpd != gpd_current && !(gpd->flag & GPD_FLAGS_HWO)) {
 
 		mreq = next_request(mep);
 
@@ -477,8 +455,7 @@ static void qmu_done_rx(struct mtu3 *mtu, u8 epnum)
 	dev_dbg(mtu->dev, "%s EP%d, last=%p, current=%p, enq=%p\n",
 		__func__, epnum, gpd, gpd_current, ring->enqueue);
 
-	while (gpd != NULL && gpd != gpd_current &&
-			!(gpd->flag & GPD_FLAGS_HWO)) {
+	while (gpd != gpd_current && !(gpd->flag & GPD_FLAGS_HWO)) {
 
 		mreq = next_request(mep);
 

@@ -48,5 +48,4 @@ obj-$(CONFIG_SND_RAWMIDI)	+= snd-rawmidi.o
 obj-$(CONFIG_SND_OSSEMUL)	+= oss/
 obj-$(CONFIG_SND_SEQUENCER)	+= seq/
 
-#obj-$(CONFIG_SND_COMPRESS_OFFLOAD)	+= snd-compress.o
-obj-y	+= snd-compress.o
+obj-$(CONFIG_SND_COMPRESS_OFFLOAD)	+= snd-compress.o

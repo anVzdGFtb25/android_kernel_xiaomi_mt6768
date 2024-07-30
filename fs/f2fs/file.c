@@ -3,7 +3,6 @@
  * fs/f2fs/file.c
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
- * Copyright (C) 2021 XiaoMi, Inc.
  *             http://www.samsung.com/
  */
 #include <linux/fs.h>
@@ -164,9 +163,6 @@ static const struct vm_operations_struct f2fs_file_vm_ops = {
 	.fault		= f2fs_filemap_fault,
 	.map_pages	= filemap_map_pages,
 	.page_mkwrite	= f2fs_vm_page_mkwrite,
-#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-	.suitable_for_spf = true,
-#endif
 };
 
 static int get_parent_ino(struct inode *inode, nid_t *pino)

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2019 Google LLC
- * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/bio.h>
@@ -48,12 +47,7 @@ int __init bio_crypt_ctx_init(void)
 
 struct bio_crypt_ctx *bio_crypt_alloc_ctx(gfp_t gfp_mask)
 {
-	struct bio_crypt_ctx *bc = mempool_alloc(bio_crypt_ctx_pool, gfp_mask);
-
-	if (bc)
-		bc->hie_ext4 = false;
-
-	return bc;
+	return mempool_alloc(bio_crypt_ctx_pool, gfp_mask);
 }
 EXPORT_SYMBOL_GPL(bio_crypt_alloc_ctx);
 

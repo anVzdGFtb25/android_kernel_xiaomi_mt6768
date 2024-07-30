@@ -806,7 +806,7 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
 			goto reject_redirect;
 	}
 
-	n = __ipv4_neigh_lookup(rt->dst.dev, new_gw);
+	n = __ipv4_neigh_lookup(rt->dst.dev, (__force u32)new_gw);
 	if (!n)
 		n = neigh_create(&arp_tbl, &new_gw, rt->dst.dev);
 	if (!IS_ERR(n)) {
@@ -1221,6 +1221,7 @@ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
 
 static void ipv4_send_dest_unreach(struct sk_buff *skb)
 {
+	struct net_device *dev;
 	struct ip_options opt;
 	int res;
 
@@ -1238,7 +1239,8 @@ static void ipv4_send_dest_unreach(struct sk_buff *skb)
 		opt.optlen = ip_hdr(skb)->ihl * 4 - sizeof(struct iphdr);
 
 		rcu_read_lock();
-		res = __ip_options_compile(dev_net(skb->dev), &opt, skb, NULL);
+		dev = skb->dev ? skb->dev : skb_rtable(skb)->dst.dev;
+		res = __ip_options_compile(dev_net(dev), &opt, skb, NULL);
 		rcu_read_unlock();
 
 		if (res)
@@ -1465,7 +1467,7 @@ struct uncached_list {
 
 static DEFINE_PER_CPU_ALIGNED(struct uncached_list, rt_uncached_list);
 
-void rt_add_uncached_list(struct rtable *rt)
+static void rt_add_uncached_list(struct rtable *rt)
 {
 	struct uncached_list *ul = raw_cpu_ptr(&rt_uncached_list);
 
@@ -1474,17 +1476,6 @@ void rt_add_uncached_list(struct rtable *rt)
 	spin_lock_bh(&ul->lock);
 	list_add_tail(&rt->rt_uncached, &ul->head);
 	spin_unlock_bh(&ul->lock);
-}
-
-void rt_del_uncached_list(struct rtable *rt)
-{
-	if (!list_empty(&rt->rt_uncached)) {
-		struct uncached_list *ul = rt->rt_uncached_list;
-
-		spin_lock_bh(&ul->lock);
-		list_del(&rt->rt_uncached);
-		spin_unlock_bh(&ul->lock);
-	}
 }
 
 static bool rt_cache_route(struct fib_nh *nh, struct rtable *rt)
@@ -1520,12 +1511,18 @@ static bool rt_cache_route(struct fib_nh *nh, struct rtable *rt)
 static void ipv4_dst_destroy(struct dst_entry *dst)
 {
 	struct dst_metrics *p = (struct dst_metrics *)DST_METRICS_PTR(dst);
-	struct rtable *rt = (struct rtable *)dst;
+	struct rtable *rt = (struct rtable *) dst;
 
 	if (p != &dst_default_metrics && refcount_dec_and_test(&p->refcnt))
 		kfree(p);
 
-	rt_del_uncached_list(rt);
+	if (!list_empty(&rt->rt_uncached)) {
+		struct uncached_list *ul = rt->rt_uncached_list;
+
+		spin_lock_bh(&ul->lock);
+		list_del(&rt->rt_uncached);
+		spin_unlock_bh(&ul->lock);
+	}
 }
 
 void rt_flush_dev(struct net_device *dev)

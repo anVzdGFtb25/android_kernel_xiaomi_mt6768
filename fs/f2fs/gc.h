@@ -3,7 +3,6 @@
  * fs/f2fs/gc.h
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
- * Copyright (C) 2021 XiaoMi, Inc.
  *             http://www.samsung.com/
  */
 #define GC_THREAD_MIN_WB_PAGES		1	/*
