@@ -99,8 +99,6 @@ bool ovl_dentry_remote(struct dentry *dentry)
 bool ovl_dentry_weird(struct dentry *dentry)
 {
 	return dentry->d_flags & (DCACHE_NEED_AUTOMOUNT |
-				  DCACHE_MANAGE_TRANSIT |
-				  DCACHE_OP_HASH |
 				  DCACHE_OP_COMPARE);
 }
 
