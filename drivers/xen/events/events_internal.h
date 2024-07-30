@@ -8,8 +8,6 @@
  */
 #ifndef __EVENTS_INTERNAL_H__
 #define __EVENTS_INTERNAL_H__
-#include <linux/rcupdate.h>
-#include <linux/workqueue.h>
 
 /* Interrupt types. */
 enum xen_irq_type {
@@ -35,8 +33,6 @@ enum xen_irq_type {
 struct irq_info {
 	struct list_head list;
 	struct list_head eoi_list;
-	struct rcu_head rcu;
-	struct work_struct work;
 	short refcnt;
 	short spurious_cnt;
 	short type;		/* type */

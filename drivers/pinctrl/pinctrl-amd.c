@@ -169,6 +169,18 @@ static int amd_gpio_set_debounce(struct gpio_chip *gc, unsigned offset,
 	return ret;
 }
 
+static int amd_gpio_set_config(struct gpio_chip *gc, unsigned offset,
+			       unsigned long config)
+{
+	u32 debounce;
+
+	if (pinconf_to_config_param(config) != PIN_CONFIG_INPUT_DEBOUNCE)
+		return -ENOTSUPP;
+
+	debounce = pinconf_to_config_argument(config);
+	return amd_gpio_set_debounce(gc, offset, debounce);
+}
+
 #ifdef CONFIG_DEBUG_FS
 static void amd_gpio_dbg_show(struct seq_file *s, struct gpio_chip *gc)
 {
@@ -609,7 +621,7 @@ static int amd_pinconf_get(struct pinctrl_dev *pctldev,
 		break;
 
 	default:
-		dev_dbg(&gpio_dev->pdev->dev, "Invalid config param %04x\n",
+		dev_err(&gpio_dev->pdev->dev, "Invalid config param %04x\n",
 			param);
 		return -ENOTSUPP;
 	}
@@ -620,7 +632,7 @@ static int amd_pinconf_get(struct pinctrl_dev *pctldev,
 }
 
 static int amd_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
-			   unsigned long *configs, unsigned int num_configs)
+				unsigned long *configs, unsigned num_configs)
 {
 	int i;
 	u32 arg;
@@ -662,7 +674,7 @@ static int amd_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			break;
 
 		default:
-			dev_dbg(&gpio_dev->pdev->dev,
+			dev_err(&gpio_dev->pdev->dev,
 				"Invalid config param %04x\n", param);
 			ret = -ENOTSUPP;
 		}
@@ -708,20 +720,6 @@ static int amd_pinconf_group_set(struct pinctrl_dev *pctldev,
 			return -ENOTSUPP;
 	}
 	return 0;
-}
-
-static int amd_gpio_set_config(struct gpio_chip *gc, unsigned int pin,
-			       unsigned long config)
-{
-	struct amd_gpio *gpio_dev = gpiochip_get_data(gc);
-
-	if (pinconf_to_config_param(config) == PIN_CONFIG_INPUT_DEBOUNCE) {
-		u32 debounce = pinconf_to_config_argument(config);
-
-		return amd_gpio_set_debounce(gc, pin, debounce);
-	}
-
-	return amd_pinconf_set(gpio_dev->pctrl, pin, &config, 1);
 }
 
 static const struct pinconf_ops amd_pinconf_ops = {

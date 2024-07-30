@@ -65,6 +65,7 @@ static int populate_dir(struct kobject *kobj)
 
 static int create_dir(struct kobject *kobj)
 {
+	const struct kobj_type *ktype = get_ktype(kobj);
 	const struct kobj_ns_type_operations *ops;
 	int error;
 
@@ -76,6 +77,14 @@ static int create_dir(struct kobject *kobj)
 	if (error) {
 		sysfs_remove_dir(kobj);
 		return error;
+	}
+
+	if (ktype) {
+		error = sysfs_create_groups(kobj, ktype->default_groups);
+		if (error) {
+			sysfs_remove_dir(kobj);
+			return error;
+		}
 	}
 
 	/*
@@ -118,7 +127,7 @@ static int get_kobj_path_length(struct kobject *kobj)
 	return length;
 }
 
-static int fill_kobj_path(struct kobject *kobj, char *path, int length)
+static void fill_kobj_path(struct kobject *kobj, char *path, int length)
 {
 	struct kobject *parent;
 
@@ -127,16 +136,12 @@ static int fill_kobj_path(struct kobject *kobj, char *path, int length)
 		int cur = strlen(kobject_name(parent));
 		/* back up enough to print this name with '/' */
 		length -= cur;
-		if (length <= 0)
-			return -EINVAL;
 		memcpy(path + length, kobject_name(parent), cur);
 		*(path + --length) = '/';
 	}
 
 	pr_debug("kobject: '%s' (%p): %s: path = '%s'\n", kobject_name(kobj),
 		 kobj, __func__, path);
-
-	return 0;
 }
 
 /**
@@ -152,17 +157,13 @@ char *kobject_get_path(struct kobject *kobj, gfp_t gfp_mask)
 	char *path;
 	int len;
 
-retry:
 	len = get_kobj_path_length(kobj);
 	if (len == 0)
 		return NULL;
 	path = kzalloc(len, gfp_mask);
 	if (!path)
 		return NULL;
-	if (fill_kobj_path(kobj, path, len)) {
-		kfree(path);
-		goto retry;
-	}
+	fill_kobj_path(kobj, path, len);
 
 	return path;
 }
@@ -575,11 +576,16 @@ EXPORT_SYMBOL_GPL(kobject_move);
 void kobject_del(struct kobject *kobj)
 {
 	struct kernfs_node *sd;
+	const struct kobj_type *ktype = get_ktype(kobj);
 
 	if (!kobj)
 		return;
 
 	sd = kobj->sd;
+
+	if (ktype)
+		sysfs_remove_groups(kobj, ktype->default_groups);
+
 	sysfs_remove_dir(kobj);
 	sysfs_put(sd);
 
@@ -821,11 +827,6 @@ int kset_register(struct kset *k)
 
 	if (!k)
 		return -EINVAL;
-
-	if (!k->kobj.ktype) {
-		pr_err("must have a ktype to be initialized properly!\n");
-		return -EINVAL;
-	}
 
 	kset_init(k);
 	err = kobject_add_internal(&k->kobj);

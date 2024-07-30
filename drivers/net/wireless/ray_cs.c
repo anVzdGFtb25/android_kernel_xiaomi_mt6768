@@ -283,14 +283,13 @@ static int ray_probe(struct pcmcia_device *p_dev)
 {
 	ray_dev_t *local;
 	struct net_device *dev;
-	int ret;
 
 	dev_dbg(&p_dev->dev, "ray_attach()\n");
 
 	/* Allocate space for private device-specific data */
 	dev = alloc_etherdev(sizeof(ray_dev_t));
 	if (!dev)
-		return -ENOMEM;
+		goto fail_alloc_dev;
 
 	local = netdev_priv(dev);
 	local->finder = p_dev;
@@ -327,16 +326,11 @@ static int ray_probe(struct pcmcia_device *p_dev)
 	init_timer(&local->timer);
 
 	this_device = p_dev;
-	ret = ray_config(p_dev);
-	if (ret)
-		goto err_free_dev;
+	return ray_config(p_dev);
 
-	return 0;
-
-err_free_dev:
-	free_netdev(dev);
-	return ret;
-}
+fail_alloc_dev:
+	return -ENOMEM;
+} /* ray_attach */
 
 static void ray_detach(struct pcmcia_device *link)
 {

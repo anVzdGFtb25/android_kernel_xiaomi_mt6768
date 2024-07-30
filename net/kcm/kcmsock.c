@@ -1065,18 +1065,15 @@ partial_message:
 out_error:
 	kcm_push(kcm);
 
-	if (sock->type == SOCK_SEQPACKET) {
+	if (copied && sock->type == SOCK_SEQPACKET) {
 		/* Wrote some bytes before encountering an
 		 * error, return partial success.
 		 */
-		if (copied)
-			goto partial_message;
-		if (head != kcm->seq_skb)
-			kfree_skb(head);
-	} else {
-		kfree_skb(head);
-		kcm->seq_skb = NULL;
+		goto partial_message;
 	}
+
+	if (head != kcm->seq_skb)
+		kfree_skb(head);
 
 	err = sk_stream_error(sk, msg->msg_flags, err);
 
@@ -1991,8 +1988,6 @@ static __net_exit void kcm_exit_net(struct net *net)
 	 * that all multiplexors and psocks have been destroyed.
 	 */
 	WARN_ON(!list_empty(&knet->mux_list));
-
-	mutex_destroy(&knet->mutex);
 }
 
 static struct pernet_operations kcm_net_ops = {

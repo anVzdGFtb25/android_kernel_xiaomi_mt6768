@@ -25,8 +25,6 @@
 /* Bluetooth HCI event handling. */
 
 #include <asm/unaligned.h>
-#include <linux/crypto.h>
-#include <crypto/algapi.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -1471,8 +1469,7 @@ static void hci_cs_inquiry(struct hci_dev *hdev, __u8 status)
 		return;
 	}
 
-	if (hci_sent_cmd_data(hdev, HCI_OP_INQUIRY))
-		set_bit(HCI_INQUIRY, &hdev->flags);
+	set_bit(HCI_INQUIRY, &hdev->flags);
 }
 
 static void hci_cs_create_conn(struct hci_dev *hdev, __u8 status)
@@ -2249,16 +2246,6 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 
 	BT_DBG("%s bdaddr %pMR type 0x%x", hdev->name, &ev->bdaddr,
 	       ev->link_type);
-
-	/* Reject incoming connection from device with same BD ADDR against
-	 * CVE-2020-26555
-	 */
-	if (hdev && !bacmp(&hdev->bdaddr, &ev->bdaddr)) {
-		bt_dev_dbg(hdev, "Reject connection with same BD_ADDR %pMR\n",
-			   &ev->bdaddr);
-		hci_reject_conn(hdev, &ev->bdaddr);
-		return;
-	}
 
 	mask |= hci_proto_connect_ind(hdev, &ev->bdaddr, ev->link_type,
 				      &flags);
@@ -3507,15 +3494,6 @@ static void hci_link_key_notify_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	if (!conn)
 		goto unlock;
 
-	/* Ignore NULL link key against CVE-2020-26555 */
-	if (!crypto_memneq(ev->link_key, ZERO_KEY, HCI_LINK_KEY_SIZE)) {
-		bt_dev_dbg(hdev, "Ignore NULL link key (ZERO KEY) for %pMR",
-			   &ev->bdaddr);
-		hci_disconnect(conn, HCI_ERROR_AUTH_FAILURE);
-		hci_conn_drop(conn);
-		goto unlock;
-	}
-
 	hci_conn_hold(conn);
 	conn->disc_timeout = HCI_DISCONN_TIMEOUT;
 	hci_conn_drop(conn);
@@ -3994,8 +3972,8 @@ static u8 bredr_oob_data_present(struct hci_conn *conn)
 		 * available, then do not declare that OOB data is
 		 * present.
 		 */
-		if (!crypto_memneq(data->rand256, ZERO_KEY, 16) ||
-		    !crypto_memneq(data->hash256, ZERO_KEY, 16))
+		if (!memcmp(data->rand256, ZERO_KEY, 16) ||
+		    !memcmp(data->hash256, ZERO_KEY, 16))
 			return 0x00;
 
 		return 0x02;
@@ -4005,8 +3983,8 @@ static u8 bredr_oob_data_present(struct hci_conn *conn)
 	 * not supported by the hardware, then check that if
 	 * P-192 data values are present.
 	 */
-	if (!crypto_memneq(data->rand192, ZERO_KEY, 16) ||
-	    !crypto_memneq(data->hash192, ZERO_KEY, 16))
+	if (!memcmp(data->rand192, ZERO_KEY, 16) ||
+	    !memcmp(data->hash192, ZERO_KEY, 16))
 		return 0x00;
 
 	return 0x01;
@@ -4022,7 +4000,7 @@ static void hci_io_capa_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	hci_dev_lock(hdev);
 
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, &ev->bdaddr);
-	if (!conn || !hci_conn_ssp_enabled(conn))
+	if (!conn)
 		goto unlock;
 
 	hci_conn_hold(conn);
@@ -4257,7 +4235,7 @@ static void hci_simple_pair_complete_evt(struct hci_dev *hdev,
 	hci_dev_lock(hdev);
 
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, &ev->bdaddr);
-	if (!conn || !hci_conn_ssp_enabled(conn))
+	if (!conn)
 		goto unlock;
 
 	/* Reset the authentication requirement to unknown */

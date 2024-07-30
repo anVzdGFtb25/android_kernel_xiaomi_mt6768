@@ -15,6 +15,9 @@
 #include <linux/cgroupstats.h>
 
 #include <trace/events/cgroup.h>
+#ifdef CONFIG_MTK_TASK_TURBO
+#include <mt-plat/turbo_common.h>
+#endif
 
 /*
  * pidlists linger the following amount before being destroyed.  The goal
@@ -382,6 +385,12 @@ static int pidlist_array_load(struct cgroup *cgrp, enum cgroup_filetype type,
 	while ((tsk = css_task_iter_next(&it))) {
 		if (unlikely(n == length))
 			break;
+
+		/* mtk: don't get pid when proc/task killed */
+		if ((SIGNAL_GROUP_EXIT & tsk->signal->flags) ||
+			(PF_EXITING & tsk->flags))
+			continue;
+
 		/* get tgid or pid for procs or tasks file respectively */
 		if (type == CGROUP_FILE_PROCS)
 			pid = task_tgid_vnr(tsk);
@@ -392,9 +401,10 @@ static int pidlist_array_load(struct cgroup *cgrp, enum cgroup_filetype type,
 	}
 	css_task_iter_end(&it);
 	length = n;
-	/* now sort & strip out duplicates (tgids or recycled thread PIDs) */
+	/* now sort & (if procs) strip out duplicates */
 	sort(array, length, sizeof(pid_t), cmppid, NULL);
-	length = pidlist_uniq(array, length);
+	if (type == CGROUP_FILE_PROCS)
+		length = pidlist_uniq(array, length);
 
 	l = cgroup_pidlist_find_create(cgrp, type);
 	if (!l) {
@@ -552,6 +562,10 @@ static ssize_t __cgroup1_procs_write(struct kernfs_open_file *of,
 		goto out_finish;
 
 	ret = cgroup_attach_task(cgrp, task, threadgroup);
+#ifdef CONFIG_MTK_TASK_TURBO
+	if (!ret)
+		cgroup_set_turbo_task(task);
+#endif
 
 out_finish:
 	cgroup_procs_write_finish(task);

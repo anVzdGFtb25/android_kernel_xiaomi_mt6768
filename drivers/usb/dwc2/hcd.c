@@ -4842,8 +4842,8 @@ fail3:
 	if (qh_allocated && qh->channel && qh->channel->qh == qh)
 		qh->channel->qh = NULL;
 fail2:
-	urb->hcpriv = NULL;
 	spin_unlock_irqrestore(&hsotg->lock, flags);
+	urb->hcpriv = NULL;
 	kfree(qtd);
 	qtd = NULL;
 fail1:
